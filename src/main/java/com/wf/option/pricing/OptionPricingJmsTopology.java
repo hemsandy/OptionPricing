@@ -27,6 +27,12 @@ public class OptionPricingJmsTopology {
 
 
 	public static void main(String[] args) throws Exception{
+
+		if(args == null || args.length < 1) {
+			log.error("USAGE: java ..OptionPricingJmsTopology http://refdataurl true/false");
+			System.out.println("USAGE: java ..OptionPricingJmsTopology http://refdataurl true/false");
+			System.exit(0);
+		}
 		log.info("Creating Topology ");
 
 		ApplicationContext context = new ClassPathXmlApplicationContext("spring/application-config.xml");
@@ -34,7 +40,8 @@ public class OptionPricingJmsTopology {
 		OptionJMSProvider optionJMSQueueProvider = new OptionJMSProvider(context, "jmsActiveMQFactory", "priceTickerSource");
 		OptionJMSProvider optionJMSTopicProvider = new OptionJMSProvider(context, "jmsActiveMQFactory", "optionPriceTopic");
 
-		JmsSpout priceTickerSpout = new JmsSpout();
+		//JmsSpout priceTickerSpout = new JmsSpout();
+		OptionJmsSpout priceTickerSpout = new OptionJmsSpout(args[0], Boolean.parseBoolean(args[1]));
 
 		OptionJMSTupleProducer tupleProducer = new OptionJMSTupleProducer();
 		priceTickerSpout.setJmsProvider(optionJMSQueueProvider);
@@ -45,7 +52,7 @@ public class OptionPricingJmsTopology {
 		TopologyBuilder builder = new TopologyBuilder();
 		builder.setSpout("OPTION_WITH_STOCK_PRICE_SPOUT", priceTickerSpout);
 		//Pricing Bolt
-		builder.setBolt("OPTION_PRICER_BOLT", new OptionPricerBolt("OPTION_PRICER_BOLT", true));
+		builder.setBolt("OPTION_PRICING_BOLT", new OptionPricerBolt("OPTION_PRICING_BOLT", true));
 
 		//JMS Bolt
 
@@ -71,7 +78,7 @@ public class OptionPricingJmsTopology {
 
 		});
 
-		builder.setBolt("PUBLISHER_BOLT", jmsBolt).shuffleGrouping("OPTION_PRICER_BOLT");
+		builder.setBolt("PUBLISHER_BOLT", jmsBolt).noneGrouping("OPTION_PRICING_BOLT");
 
 
 		Config conf = new Config();
@@ -81,10 +88,10 @@ public class OptionPricingJmsTopology {
 			conf.setMaxTaskParallelism(1);
 
 			LocalCluster cluster = new LocalCluster();
-			cluster.submitTopology("OPTION_PRICER_TOPOLOGY", conf, builder.createTopology());
+			cluster.submitTopology("OPTION_PRICING_TOPOLOGY", conf, builder.createTopology());
 		}else{
 			conf.setNumWorkers(2);
-			StormSubmitter.submitTopology("OPTION_PRICER_TOPOLOGY", conf, builder.createTopology());
+			StormSubmitter.submitTopology("OPTION_PRICING_TOPOLOGY", conf, builder.createTopology());
 		}
 		log.info("Submitted Topology ");
 	}

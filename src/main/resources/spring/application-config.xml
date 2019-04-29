@@ -38,4 +38,6 @@
         <!-- name of the queue -->
         <constructor-arg index="0" value="${option.pricing.jms.topic}" />
     </bean>
+
+
 </beans>

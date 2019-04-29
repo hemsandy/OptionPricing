@@ -42,6 +42,7 @@ public class OptionData {
 		this.expiryDate = expiry;
 		this.stockPrice = stockPrice;
 		this.optionPrice = optionPrice;
+		this.stockName = optionName.substring(0,4);
 	}
 
 	public String getStockName() {
@@ -58,6 +59,7 @@ public class OptionData {
 
 	public void setOptionName(String optionName) {
 		this.optionName = optionName;
+		this.stockName = optionName.substring(0,4);
 	}
 
 	public double getStrike() {
@@ -84,7 +86,7 @@ public class OptionData {
 		this.expiryDate = expiryDate;
 	}
 
-	public static DateTimeFormatter formatter =  DateTimeFormatter.ofPattern("MM/dd/yyyy");
+	public static DateTimeFormatter formatter =  DateTimeFormatter.ofPattern("yyyy-MM-dd[ HH][:mm][:mm][ SSS]");
 
 	public double getStockPrice() {
 		return stockPrice;
@@ -132,4 +134,5 @@ public class OptionData {
 
 		return optionData;
 	}
+
 }

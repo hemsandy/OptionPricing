@@ -46,7 +46,6 @@
 		  <groupId>org.apache.storm</groupId>
 		  <artifactId>storm-jms</artifactId>
 		  <version>${storm.version}</version>
-		  <scope>provided</scope>
 	  </dependency>
 		<dependency>
 		    <groupId>com.google.code.gson</groupId>

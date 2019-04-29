@@ -1,5 +1,6 @@
 package com.wf.option.pricing;
 
+import com.wf.option.pricing.model.OptionData;
 import org.apache.storm.jms.JmsTupleProducer;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.tuple.Fields;
@@ -21,6 +22,10 @@ public class OptionJMSTupleProducer implements JmsTupleProducer {
         } else {
             return null;
         }
+    }
+
+    public Values toTuple(OptionData optionData) {
+        return new Values(optionData.toJSONString());
     }
 
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
