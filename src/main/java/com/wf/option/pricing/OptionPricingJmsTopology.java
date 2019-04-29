@@ -10,6 +10,8 @@ import org.apache.storm.jms.spout.JmsSpout;
 import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.tuple.ITuple;
 import org.apache.storm.tuple.Tuple;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -21,8 +23,11 @@ import java.util.List;
 
 public class OptionPricingJmsTopology {
 
+	private static Logger log = LoggerFactory.getLogger(OptionPricingJmsTopology.class);
+
+
 	public static void main(String[] args) throws Exception{
-		System.out.println("Creating Topology");
+		log.info("Creating Topology ");
 
 		ApplicationContext context = new ClassPathXmlApplicationContext("spring/application-config.xml");
 
@@ -81,5 +86,6 @@ public class OptionPricingJmsTopology {
 			conf.setNumWorkers(2);
 			StormSubmitter.submitTopology("OPTION_PRICER_TOPOLOGY", conf, builder.createTopology());
 		}
+		log.info("Submitted Topology ");
 	}
 }
