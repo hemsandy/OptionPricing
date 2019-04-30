@@ -25,6 +25,10 @@ public class OptionPricingJmsTopology {
 
 	private static Logger log = LoggerFactory.getLogger(OptionPricingJmsTopology.class);
 
+	public static String OPTION_WITH_STOCK_PRICE_SPOUT="OPTION_WITH_STOCK_PRICE_SPOUT";
+	public static String OPTION_PRICING_BOLT="OPTION_PRICING_BOLT";
+	public static String PUBLISHER_BOLT="PUBLISHER_BOLT";
+	public static String OPTION_PRICING_TOPOLOGY="OPTION_PRICING_TOPOLOGY";
 
 	public static void main(String[] args) throws Exception{
 
@@ -50,9 +54,10 @@ public class OptionPricingJmsTopology {
 		priceTickerSpout.setDistributed(false);
 
 		TopologyBuilder builder = new TopologyBuilder();
-		builder.setSpout("OPTION_WITH_STOCK_PRICE_SPOUT", priceTickerSpout);
+		builder.setSpout(OPTION_WITH_STOCK_PRICE_SPOUT, priceTickerSpout);
 		//Pricing Bolt
-		builder.setBolt("OPTION_PRICING_BOLT", new OptionPricerBolt("OPTION_PRICING_BOLT", true));
+		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true))
+				.shuffleGrouping(OPTION_WITH_STOCK_PRICE_SPOUT);
 
 		//JMS Bolt
 
@@ -78,7 +83,7 @@ public class OptionPricingJmsTopology {
 
 		});
 
-		builder.setBolt("PUBLISHER_BOLT", jmsBolt).noneGrouping("OPTION_PRICING_BOLT");
+		builder.setBolt(PUBLISHER_BOLT, jmsBolt).noneGrouping(OPTION_PRICING_BOLT);
 
 
 		Config conf = new Config();
@@ -88,10 +93,10 @@ public class OptionPricingJmsTopology {
 			conf.setMaxTaskParallelism(1);
 
 			LocalCluster cluster = new LocalCluster();
-			cluster.submitTopology("OPTION_PRICING_TOPOLOGY", conf, builder.createTopology());
+			cluster.submitTopology(OPTION_PRICING_TOPOLOGY, conf, builder.createTopology());
 		}else{
 			conf.setNumWorkers(2);
-			StormSubmitter.submitTopology("OPTION_PRICING_TOPOLOGY", conf, builder.createTopology());
+			StormSubmitter.submitTopology(OPTION_PRICING_TOPOLOGY, conf, builder.createTopology());
 		}
 		log.info("Submitted Topology ");
 	}

@@ -26,6 +26,7 @@ import org.jquantlib.instruments.Option;
 import org.jquantlib.instruments.Payoff;
 import org.jquantlib.instruments.PlainVanillaPayoff;
 import org.jquantlib.instruments.VanillaOption;
+import org.jquantlib.pricingengines.AnalyticEuropeanEngine;
 import org.jquantlib.processes.BlackScholesMertonProcess;
 import org.jquantlib.quotes.Handle;
 import org.jquantlib.quotes.Quote;
@@ -70,14 +71,19 @@ public class OptionPricerBolt extends BaseBasicBolt {
 		OptionData  optionData = OptionData.fromJsonString((String) values.get(0));
 		double underlyingTickPrice = optionData.getStockPrice();
 		logger.info("Inside execute method of OptionPricerBolt : underlyingPrice :"+underlyingTickPrice);
-		double optionPrice = price(optionData);
-		optionData.setOptionPrice(optionPrice);
-		logger.info("Final price calculated for option :"+optionData.getOptionName()+" is :"+optionPrice);
-		logger.info("------------------------End--------------------------"+System.nanoTime());
+		try {
+			double optionPrice = price(optionData);
+			optionData.setOptionPrice(optionPrice);
 
-		if(this.declaredFields != null){
-			logger.debug("[" + this.name + "] emitting: " + tuple + ", optionPrice: "+ optionPrice);
-			this.collector.emit(Arrays.asList(new OptionData[]{optionData}));
+			logger.info("Final price calculated for option :"+optionData.getOptionName()+" is :"+optionPrice);
+			logger.info("------------------------End--------------------------"+System.nanoTime());
+
+			if(this.declaredFields != null){
+				logger.debug("[" + this.name + "] emitting: " + tuple + ", optionPrice: "+ optionPrice);
+				this.collector.emit(Arrays.asList(new OptionData[]{optionData}));
+			}
+		}catch(Exception e) {
+			logger.error("Failed to price the option {}", optionData.getOptionName(),e);
 		}
 
 		if(this.autoAck){
@@ -116,6 +122,8 @@ public class OptionPricerBolt extends BaseBasicBolt {
 
 		// European Options
 		final VanillaOption europeanOption = new EuropeanOption(payoff, europeanExercise);
+		String method = "Black-Scholes";
+		europeanOption.setPricingEngine(new AnalyticEuropeanEngine(bsmProcess));
 		// Black-Scholes for European
 		return europeanOption.NPV();
 	}

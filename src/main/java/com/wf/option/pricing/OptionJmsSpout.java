@@ -228,6 +228,7 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
             // get the tuple from the handler
             try {
                 String symbol = null;
+                final double[] stockPrice = {0.0};
                 if(msg instanceof TextMessage) {
                     TextMessage textMessage = (TextMessage) msg;
                     String payLoad = textMessage.getText();
@@ -236,6 +237,7 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                     JsonParser parser = new JsonParser();
                     JsonObject jsonObject = (JsonObject)parser.parse(payLoad);
                     symbol = jsonObject.get("symbol").getAsString();
+                    stockPrice[0] = jsonObject.get("price").getAsDouble();
                 }
                 List<OptionData> optionTobePublished = null;
                 if(readAll) {
@@ -254,6 +256,7 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                     if(optionTobePublished != null && !optionTobePublished.isEmpty()) {
                         //Values vals = ((OptionJMSTupleProducer)(this.tupleProducer)).toTuple(msg);
                         (optionTobePublished).parallelStream().forEach(optionData -> {
+                            optionData.setStockPrice(stockPrice[0]);
                             Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData);
                             this.collector.emit(vals);
                         });
