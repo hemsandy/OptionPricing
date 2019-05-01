@@ -2,12 +2,16 @@ package com.wf.option.pricing.model;
 
 import com.google.gson.*;
 
+import java.io.Serializable;
 import java.lang.reflect.Type;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 
-public class OptionData {
+public class OptionData implements Serializable {
+
+	private static final long serialVersionUID = 8923l;
+
 	private String stockName;
 	private String optionName;
 	private double strike;

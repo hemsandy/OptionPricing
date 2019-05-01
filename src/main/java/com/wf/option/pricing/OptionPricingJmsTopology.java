@@ -18,7 +18,6 @@ import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.Session;
 import javax.jms.TextMessage;
-import java.util.List;
 
 public class OptionPricingJmsTopology {
 
@@ -33,11 +32,11 @@ public class OptionPricingJmsTopology {
 	public static void main(String[] args) throws Exception{
 
 		if(args == null || args.length < 1) {
-			log.error("USAGE: java ..OptionPricingJmsTopology http://refdataurl true/false");
-			System.out.println("USAGE: java ..OptionPricingJmsTopology http://refdataurl true/false");
+			log.error("USAGE: java ..OptionPricingJmsTopology http://refdataurl local/remote");
+			System.out.println("USAGE: java ..OptionPricingJmsTopology http://refdataurl local/remote");
 			System.exit(0);
 		}
-		log.info("Creating Topology ");
+		log.info("Creating Topology {}", OPTION_PRICING_TOPOLOGY);
 
 		ApplicationContext context = new ClassPathXmlApplicationContext("spring/application-config.xml");
 
@@ -45,7 +44,8 @@ public class OptionPricingJmsTopology {
 		OptionJMSProvider optionJMSTopicProvider = new OptionJMSProvider(context, "jmsActiveMQFactory", "optionPriceTopic");
 
 		//JmsSpout priceTickerSpout = new JmsSpout();
-		OptionJmsSpout priceTickerSpout = new OptionJmsSpout(args[0], Boolean.parseBoolean(args[1]));
+		//set second param is false always.. Boolean.parseBoolean(args[1])
+		OptionJmsSpout priceTickerSpout = new OptionJmsSpout(args[0], false);
 
 		OptionJMSTupleProducer tupleProducer = new OptionJMSTupleProducer();
 		priceTickerSpout.setJmsProvider(optionJMSQueueProvider);
@@ -56,44 +56,41 @@ public class OptionPricingJmsTopology {
 		TopologyBuilder builder = new TopologyBuilder();
 		builder.setSpout(OPTION_WITH_STOCK_PRICE_SPOUT, priceTickerSpout);
 		//Transformer Bolt
-		//builder.setBolt(OPTION_TRANSFORMER_BOLT, new OptionDataReaderBolt()).shuffleGrouping(OPTION_WITH_STOCK_PRICE_SPOUT);
-		//Pricing Bolt
-//		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true), 5)
-//				.shuffleGrouping(OPTION_TRANSFORMER_BOLT);
-		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true), 5)
+		builder.setBolt(OPTION_TRANSFORMER_BOLT, new OptionDataReaderBolt(),2)
 				.shuffleGrouping(OPTION_WITH_STOCK_PRICE_SPOUT);
+		//Pricing Bolt
+		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true), 5)
+				.shuffleGrouping(OPTION_TRANSFORMER_BOLT);
 
 		//JMS Bolt
 
 		//bolt that subscribes to the intermediate bolt, and publishes to a JMS Topic
-		//JmsBolt jmsBolt = new JmsBolt();
-		//jmsBolt.setJmsProvider(optionJMSTopicProvider);
+		JmsBolt jmsBolt = new JmsBolt();
+		jmsBolt.setJmsProvider(optionJMSTopicProvider);
 
 		// Publishes the OptionData jsonString to Topic
-		/*jmsBolt.setJmsMessageProducer(new JmsMessageProducer() {
+		jmsBolt.setJmsMessageProducer(new JmsMessageProducer() {
 			@Override
 			public Message toMessage(Session session, ITuple iTuple) throws JMSException {
-				List<OptionData> optionDataList = (List<OptionData>) ((Tuple)iTuple).getValue(0);
-				if(optionDataList != null && !optionDataList.isEmpty()) {
-					String jsonString = optionDataList.get(0).toJSONString();
-					System.out.println("Sending JMS Message:" + jsonString);
-					TextMessage tm = session.createTextMessage(jsonString);
-					return tm;
-				}else {
-					return null;
+				TextMessage tm = null;
+				try {
+					OptionData optionData = (OptionData) iTuple.getValue(0);
+					String jsonString = optionData.toJSONString();
+					//log.info("Sending JMS Message:" + jsonString);
+					tm = session.createTextMessage(jsonString);
+				}catch(Exception e) {
+					log.error("Exception .. in Sending JMS Message to Topic");
 				}
+				return tm;
 			}
+		});
 
-
-		});*/
-
-		//builder.setBolt(PUBLISHER_BOLT, jmsBolt);
-
+		builder.setBolt(PUBLISHER_BOLT, jmsBolt,2).shuffleGrouping(OPTION_PRICING_BOLT);
 
 		Config conf = new Config();
 		conf.setDebug(true);
 
-		if(args != null && args.length > 0){
+		if(args[1].equalsIgnoreCase("local")){
 			conf.setMaxTaskParallelism(1);
 
 			LocalCluster cluster = new LocalCluster();
@@ -102,6 +99,6 @@ public class OptionPricingJmsTopology {
 			conf.setNumWorkers(2);
 			StormSubmitter.submitTopology(OPTION_PRICING_TOPOLOGY, conf, builder.createTopology());
 		}
-		log.info("Submitted Topology ");
+		log.info("Submitted Topology {}", OPTION_PRICING_TOPOLOGY);
 	}
 }

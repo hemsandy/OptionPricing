@@ -255,14 +255,12 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                     LOG.info("Requesting acks.");
                     JmsMessageID messageId = new JmsMessageID(this.messageSequence++, msg.getJMSMessageID());
                     if(optionTobePublished != null && !optionTobePublished.isEmpty()) {
-                        //Values vals = ((OptionJMSTupleProducer)(this.tupleProducer)).toTuple(msg);
                         (optionTobePublished).parallelStream().forEach(optionData -> {
                             optionData.setStockPrice(stockPrice[0]);
                             Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData, stockPrice[0]);
                             this.collector.emit(vals);
                         });
                     }
-                    //this.collector.emit(vals, messageId);
 
                     // at this point we successfully emitted. Store
                     // the message and message ID so we can do a
@@ -270,14 +268,12 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                     this.pendingMessages.put(messageId, msg);
                     this.toCommit.add(messageId);
                 } else {
-                    //Values vals = ((OptionJMSTupleProducer)(this.tupleProducer)).toTuple(msg);
                     if(optionTobePublished != null && !optionTobePublished.isEmpty()) {
                         (optionTobePublished).parallelStream().forEach(optionData -> {
                             Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData,stockPrice[0]);
                             this.collector.emit(vals);
                         });
                     }
-                    //this.collector.emit(vals);
                 }
             } catch (JMSException e) {
                 LOG.warn("Unable to convert JMS message: " + msg);

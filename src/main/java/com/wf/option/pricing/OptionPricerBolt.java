@@ -18,6 +18,7 @@ import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseBasicBolt;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
+import org.apache.storm.tuple.Values;
 import org.jquantlib.Settings;
 import org.jquantlib.daycounters.Actual365Fixed;
 import org.jquantlib.daycounters.DayCounter;
@@ -69,8 +70,9 @@ public class OptionPricerBolt extends BaseBasicBolt {
 	public void execute(Tuple tuple, BasicOutputCollector collector) {
 		logger.info("--------------------------------------------------"+System.nanoTime());
 		List<Object> values = tuple.getValues();
-		OptionData  optionData = OptionData.fromJsonString((String) values.get(0));
-		double  underlyingPrice = 200.0;
+		OptionData  optionData = (OptionData) values.get(0);
+//		OptionData optionData = OptionData.fromJsonString((String) values.get(0));
+		double  underlyingPrice = (Double) values.get(1);
 		if(values.get(1) != null) {
 			underlyingPrice = (double) values.get(1);
 		}
@@ -83,24 +85,24 @@ public class OptionPricerBolt extends BaseBasicBolt {
 			logger.info("Final price calculated for option :"+optionData.getOptionName()+" is :"+optionPrice);
 			logger.info("------------------------End--------------------------"+System.nanoTime());
 
-			if(this.declaredFields != null){
+			//if(this.declaredFields != null){
 				logger.info("[" + this.name + "] emitting: " + tuple + ", optionPrice: " + optionPrice);
-				//collector.emit(Arrays.asList(new OptionData[]{optionData}));
-			}
+				collector.emit(new Values(optionData));
+			//}
 		}catch(Exception e) {
 			logger.error("Failed to price the option {}", optionData.getOptionName(),e);
 		}
 
-		/*if(this.autoAck){
-			logger.info("[" + this.name + "] ACKing tuple: " + tuple);
-			collector.ack(tuple);
-		}*/
+//		if(this.autoAck){
+//			logger.info("[" + this.name + "] ACKing tuple: " + tuple);
+//			collector.ack(tuple);
+//		}
 	}
 
 	private double price(OptionData optionData, double underlying) {
 
 		final Option.Type type = Option.Type.Call;
-		String optionName = optionData.getOptionName();
+		//String optionName = optionData.getOptionName();
 		/* @Rate */final double riskFreeRate = 0.0256;
 		double impVol = optionData.getVolatility();
 		if (impVol == 0.0)
