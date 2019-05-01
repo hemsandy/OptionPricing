@@ -152,7 +152,7 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
      */
     public void onMessage(Message msg) {
         try {
-            LOG.debug("Queuing msg [" + msg.getJMSMessageID() + "]");
+            LOG.info("Queuing msg [" + msg.getJMSMessageID() + "]");
         } catch (JMSException e) {
         }
         this.queue.offer(msg);
@@ -209,7 +209,7 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
 
     public void close() {
         try {
-            LOG.debug("Closing JMS connection.");
+            LOG.info("Closing JMS connection.");
             this.session.close();
             this.connection.close();
         } catch (JMSException e) {
@@ -224,7 +224,7 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
             Utils.sleep(50);//TODO: may need to tune
         } else {
 
-            LOG.debug("sending tuple: " + msg);
+            LOG.info("sending tuple: " + msg);
             // get the tuple from the handler
             try {
                 String symbol = null;
@@ -232,12 +232,13 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                 if(msg instanceof TextMessage) {
                     TextMessage textMessage = (TextMessage) msg;
                     String payLoad = textMessage.getText();
-                    LOG.debug("Payload: {} ", payLoad);
+                    LOG.info("Payload: {} ", payLoad);
 
                     JsonParser parser = new JsonParser();
                     JsonObject jsonObject = (JsonObject)parser.parse(payLoad);
                     symbol = jsonObject.get("symbol").getAsString();
                     stockPrice[0] = jsonObject.get("price").getAsDouble();
+                    LOG.info("Stock Price.. {}", stockPrice[0]);
                 }
                 List<OptionData> optionTobePublished = null;
                 if(readAll) {
@@ -248,16 +249,16 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                 }
 
                 // ack if we're not in AUTO_ACKNOWLEDGE mode, or the message requests ACKNOWLEDGE
-                LOG.debug("Requested deliveryMode: " + toDeliveryModeString(msg.getJMSDeliveryMode()));
-                LOG.debug("Our deliveryMode: " + toDeliveryModeString(this.jmsAcknowledgeMode));
+                LOG.info("Requested deliveryMode: " + toDeliveryModeString(msg.getJMSDeliveryMode()));
+                LOG.info("Our deliveryMode: " + toDeliveryModeString(this.jmsAcknowledgeMode));
                 if (this.isDurableSubscription()) {
-                    LOG.debug("Requesting acks.");
+                    LOG.info("Requesting acks.");
                     JmsMessageID messageId = new JmsMessageID(this.messageSequence++, msg.getJMSMessageID());
                     if(optionTobePublished != null && !optionTobePublished.isEmpty()) {
                         //Values vals = ((OptionJMSTupleProducer)(this.tupleProducer)).toTuple(msg);
                         (optionTobePublished).parallelStream().forEach(optionData -> {
                             optionData.setStockPrice(stockPrice[0]);
-                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData);
+                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData, stockPrice[0]);
                             this.collector.emit(vals);
                         });
                     }
@@ -272,7 +273,7 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                     //Values vals = ((OptionJMSTupleProducer)(this.tupleProducer)).toTuple(msg);
                     if(optionTobePublished != null && !optionTobePublished.isEmpty()) {
                         (optionTobePublished).parallelStream().forEach(optionData -> {
-                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData);
+                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData,stockPrice[0]);
                             this.collector.emit(vals);
                         });
                     }
@@ -296,9 +297,9 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
         if(msgId.equals(oldest)) {
             if (msg != null) {
                 try {
-                    LOG.debug("Committing...");
+                    LOG.info("Committing...");
                     msg.acknowledge();
-                    LOG.debug("JMS Message acked: " + msgId);
+                    LOG.info("JMS Message acked: " + msgId);
                     this.toCommit.remove(msgId);
                 } catch (JMSException e) {
                     LOG.warn("Error acknowldging JMS message: " + msgId, e);

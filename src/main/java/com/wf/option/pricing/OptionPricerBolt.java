@@ -1,5 +1,7 @@
 package com.wf.option.pricing;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -46,7 +48,6 @@ import com.google.gson.JsonObject;
 public class OptionPricerBolt extends BaseBasicBolt {
 	private static Logger logger = LoggerFactory.getLogger("OptionPricerBolt");
 
-	private OutputCollector collector;
 	private boolean autoAck = false;
 
 	private Fields declaredFields;
@@ -58,47 +59,52 @@ public class OptionPricerBolt extends BaseBasicBolt {
 
 	}
 
-	@SuppressWarnings("rawtypes")
-	public void prepare(Map stormConf, TopologyContext context,
-						OutputCollector collector) {
-		this.collector = collector;
-
-	}
+//	@SuppressWarnings("rawtypes")
+//	public void prepare(Map stormConf, TopologyContext context,
+//						OutputCollector collector) {
+//		this.collector = collector;
+//
+//	}
 
 	public void execute(Tuple tuple, BasicOutputCollector collector) {
 		logger.info("--------------------------------------------------"+System.nanoTime());
 		List<Object> values = tuple.getValues();
 		OptionData  optionData = OptionData.fromJsonString((String) values.get(0));
-		double underlyingTickPrice = optionData.getStockPrice();
-		logger.info("Inside execute method of OptionPricerBolt : underlyingPrice :"+underlyingTickPrice);
+		double  underlyingPrice = 200.0;
+		if(values.get(1) != null) {
+			underlyingPrice = (double) values.get(1);
+		}
+
+		logger.info("Inside execute method of OptionPricerBolt : underlyingPrice :"+underlyingPrice);
 		try {
-			double optionPrice = price(optionData);
+			double optionPrice = price(optionData, underlyingPrice);
 			optionData.setOptionPrice(optionPrice);
 
 			logger.info("Final price calculated for option :"+optionData.getOptionName()+" is :"+optionPrice);
 			logger.info("------------------------End--------------------------"+System.nanoTime());
 
 			if(this.declaredFields != null){
-				logger.debug("[" + this.name + "] emitting: " + tuple + ", optionPrice: "+ optionPrice);
-				this.collector.emit(Arrays.asList(new OptionData[]{optionData}));
+				logger.info("[" + this.name + "] emitting: " + tuple + ", optionPrice: " + optionPrice);
+				//collector.emit(Arrays.asList(new OptionData[]{optionData}));
 			}
 		}catch(Exception e) {
 			logger.error("Failed to price the option {}", optionData.getOptionName(),e);
 		}
 
-		if(this.autoAck){
-			logger.debug("[" + this.name + "] ACKing tuple: " + tuple);
-			this.collector.ack(tuple);
-		}
+		/*if(this.autoAck){
+			logger.info("[" + this.name + "] ACKing tuple: " + tuple);
+			collector.ack(tuple);
+		}*/
 	}
 
-	private double price(OptionData optionData) {
+	private double price(OptionData optionData, double underlying) {
+
 		final Option.Type type = Option.Type.Call;
 		String optionName = optionData.getOptionName();
-		final double underlying = optionData.getStockPrice();
-		/*@Rate*/final double riskFreeRate = 0.0256;
+		/* @Rate */final double riskFreeRate = 0.0256;
 		double impVol = optionData.getVolatility();
-		if(impVol == 0.0) impVol = 1;
+		if (impVol == 0.0)
+			impVol = 1;
 		final double volatility = impVol;
 		final double dividendYield = 0.00;
 		// set up dates
@@ -106,30 +112,37 @@ public class OptionPricerBolt extends BaseBasicBolt {
 		final Date todaysDate = new Date(new java.util.Date());
 		new Settings().setEvaluationDate(todaysDate);
 		LocalDate localDate = optionData.getExpiryDate();
-		//Long lDate = new Long(strDate);
-		final Date expiryDate = new Date(java.util.Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant()));
+		Date expiryDate = new Date(java.util.Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant()));
+
 		final DayCounter dayCounter = new Actual365Fixed();
 		final Exercise europeanExercise = new EuropeanExercise(expiryDate);
 
 		// bootstrap the yield/dividend/volatility curves
-		final Handle<Quote> underlyingH = new Handle<Quote>(new SimpleQuote(underlying));
-		final Handle<YieldTermStructure> flatDividendTS = new Handle<YieldTermStructure>(new FlatForward(todaysDate, dividendYield, dayCounter));
-		final Handle<YieldTermStructure> flatTermStructure = new Handle<YieldTermStructure>(new FlatForward(todaysDate, riskFreeRate, dayCounter));
-		final Handle<BlackVolTermStructure> flatVolTS = new Handle<BlackVolTermStructure>(new BlackConstantVol(todaysDate, calendar, volatility, dayCounter));
+		final Handle<Quote> underlyingH = new Handle<Quote>(new SimpleQuote(
+				underlying));
+		final Handle<YieldTermStructure> flatDividendTS = new Handle<YieldTermStructure>(
+				new FlatForward(todaysDate, dividendYield, dayCounter));
+		final Handle<YieldTermStructure> flatTermStructure = new Handle<YieldTermStructure>(
+				new FlatForward(todaysDate, riskFreeRate, dayCounter));
+		final Handle<BlackVolTermStructure> flatVolTS = new Handle<BlackVolTermStructure>(
+				new BlackConstantVol(todaysDate, calendar, volatility,
+						dayCounter));
 		final Payoff payoff = new PlainVanillaPayoff(type, optionData.getStrike());
 
-		final BlackScholesMertonProcess bsmProcess = new BlackScholesMertonProcess(underlyingH, flatDividendTS, flatTermStructure, flatVolTS);
+		final BlackScholesMertonProcess bsmProcess = new BlackScholesMertonProcess(
+				underlyingH, flatDividendTS, flatTermStructure, flatVolTS);
 
 		// European Options
-		final VanillaOption europeanOption = new EuropeanOption(payoff, europeanExercise);
-		String method = "Black-Scholes";
+		final VanillaOption europeanOption = new EuropeanOption(payoff,
+				europeanExercise);
+
 		europeanOption.setPricingEngine(new AnalyticEuropeanEngine(bsmProcess));
 		// Black-Scholes for European
 		return europeanOption.NPV();
 	}
 
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		declarer.declare(new Fields("optionDataList"));
+		declarer.declare(new Fields("optionDataWithPrice"));
 	}
 
 }

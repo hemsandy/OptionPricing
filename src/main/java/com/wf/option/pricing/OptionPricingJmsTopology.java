@@ -6,7 +6,6 @@ import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
 import org.apache.storm.jms.JmsMessageProducer;
 import org.apache.storm.jms.bolt.JmsBolt;
-import org.apache.storm.jms.spout.JmsSpout;
 import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.tuple.ITuple;
 import org.apache.storm.tuple.Tuple;
@@ -27,6 +26,7 @@ public class OptionPricingJmsTopology {
 
 	public static String OPTION_WITH_STOCK_PRICE_SPOUT="OPTION_WITH_STOCK_PRICE_SPOUT";
 	public static String OPTION_PRICING_BOLT="OPTION_PRICING_BOLT";
+	public static String OPTION_TRANSFORMER_BOLT="OPTION_TRANSFORMER_BOLT";
 	public static String PUBLISHER_BOLT="PUBLISHER_BOLT";
 	public static String OPTION_PRICING_TOPOLOGY="OPTION_PRICING_TOPOLOGY";
 
@@ -55,18 +55,22 @@ public class OptionPricingJmsTopology {
 
 		TopologyBuilder builder = new TopologyBuilder();
 		builder.setSpout(OPTION_WITH_STOCK_PRICE_SPOUT, priceTickerSpout);
+		//Transformer Bolt
+		//builder.setBolt(OPTION_TRANSFORMER_BOLT, new OptionDataReaderBolt()).shuffleGrouping(OPTION_WITH_STOCK_PRICE_SPOUT);
 		//Pricing Bolt
-		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true))
+//		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true), 5)
+//				.shuffleGrouping(OPTION_TRANSFORMER_BOLT);
+		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true), 5)
 				.shuffleGrouping(OPTION_WITH_STOCK_PRICE_SPOUT);
 
 		//JMS Bolt
 
-		// bolt that subscribes to the intermediate bolt, and publishes to a JMS Topic
-		JmsBolt jmsBolt = new JmsBolt();
-		jmsBolt.setJmsProvider(optionJMSTopicProvider);
+		//bolt that subscribes to the intermediate bolt, and publishes to a JMS Topic
+		//JmsBolt jmsBolt = new JmsBolt();
+		//jmsBolt.setJmsProvider(optionJMSTopicProvider);
 
 		// Publishes the OptionData jsonString to Topic
-		jmsBolt.setJmsMessageProducer(new JmsMessageProducer() {
+		/*jmsBolt.setJmsMessageProducer(new JmsMessageProducer() {
 			@Override
 			public Message toMessage(Session session, ITuple iTuple) throws JMSException {
 				List<OptionData> optionDataList = (List<OptionData>) ((Tuple)iTuple).getValue(0);
@@ -81,9 +85,9 @@ public class OptionPricingJmsTopology {
 			}
 
 
-		});
+		});*/
 
-		builder.setBolt(PUBLISHER_BOLT, jmsBolt).noneGrouping(OPTION_PRICING_BOLT);
+		//builder.setBolt(PUBLISHER_BOLT, jmsBolt);
 
 
 		Config conf = new Config();
