@@ -12,6 +12,18 @@
               </property>
        </bean>
 
+    <bean id="redisBuilder" class="com.wf.option.pricing.redis.RedisBoltBuilder" >
+        <constructor-arg name="configuration" >
+            <map>
+                <entry key="redisHost" value="${option.pricing.redis.host}" />
+                <entry key="redisPort" value="${option.pricing.redis.port}" />
+                <entry key="redisTimeout" value="${option.pricing.redis.timeout}" />
+                <entry key="redisPswd" value="${option.pricing.redis.pswd}" />
+                <entry key="redisDatabase" value="${option.pricing.redis.database}" />
+            </map>
+        </constructor-arg>
+    </bean>
+
        <!--  JMS Connection Details -->
 
        <!-- a pooling based JMS provider -->

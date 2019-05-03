@@ -66,7 +66,8 @@ public class OptionPricingJmsTopology {
 
 		if(args.length >2 && args[2] != null && args[2].equalsIgnoreCase("redis")) {
 			//Redis Bolt
-			RedisStoreBolt redisStoreBolt = RedisBoltBuilder.createInstance(context);
+			RedisBoltBuilder redisBoltBuilder = ((RedisBoltBuilder) context.getBean("redisBuilder"));
+			RedisStoreBolt redisStoreBolt = redisBoltBuilder.createInstance();
 
 			builder.setBolt(PUBLISHER_BOLT, redisStoreBolt, 2).shuffleGrouping(OPTION_PRICING_BOLT);
 
