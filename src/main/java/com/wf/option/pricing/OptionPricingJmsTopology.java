@@ -1,11 +1,13 @@
 package com.wf.option.pricing;
 
 import com.wf.option.pricing.model.OptionData;
+import com.wf.option.pricing.redis.RedisBoltBuilder;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
 import org.apache.storm.jms.JmsMessageProducer;
 import org.apache.storm.jms.bolt.JmsBolt;
+import org.apache.storm.redis.bolt.RedisStoreBolt;
 import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.tuple.ITuple;
 import org.apache.storm.tuple.Tuple;
@@ -62,30 +64,39 @@ public class OptionPricingJmsTopology {
 		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true), 5)
 				.shuffleGrouping(OPTION_TRANSFORMER_BOLT);
 
-		//JMS Bolt
+		if(args.length >2 && args[2] != null && args[2].equalsIgnoreCase("redis")) {
+			//Redis Bolt
+			RedisStoreBolt redisStoreBolt = RedisBoltBuilder.createInstance(context);
 
-		//bolt that subscribes to the intermediate bolt, and publishes to a JMS Topic
-		JmsBolt jmsBolt = new JmsBolt();
-		jmsBolt.setJmsProvider(optionJMSTopicProvider);
+			builder.setBolt(PUBLISHER_BOLT, redisStoreBolt, 2).shuffleGrouping(OPTION_PRICING_BOLT);
 
-		// Publishes the OptionData jsonString to Topic
-		jmsBolt.setJmsMessageProducer(new JmsMessageProducer() {
-			@Override
-			public Message toMessage(Session session, ITuple iTuple) throws JMSException {
-				TextMessage tm = null;
-				try {
-					OptionData optionData = (OptionData) iTuple.getValue(0);
-					String jsonString = optionData.toJSONString();
-					//log.info("Sending JMS Message:" + jsonString);
-					tm = session.createTextMessage(jsonString);
-				}catch(Exception e) {
-					log.error("Exception .. in Sending JMS Message to Topic");
+		}else{
+			//JMS Bolt
+
+			//bolt that subscribes to the intermediate bolt, and publishes to a JMS Topic
+			JmsBolt jmsBolt = new JmsBolt();
+			jmsBolt.setJmsProvider(optionJMSTopicProvider);
+
+			// Publishes the OptionData jsonString to Topic
+			jmsBolt.setJmsMessageProducer(new JmsMessageProducer() {
+				@Override
+				public Message toMessage(Session session, ITuple iTuple) throws JMSException {
+					TextMessage tm = null;
+					try {
+						OptionData optionData = (OptionData) iTuple.getValue(0);
+						String jsonString = optionData.toJSONString();
+						//log.info("Sending JMS Message:" + jsonString);
+						tm = session.createTextMessage(jsonString);
+					} catch (Exception e) {
+						log.error("Exception .. in Sending JMS Message to Topic");
+					}
+					return tm;
 				}
-				return tm;
-			}
-		});
+			});
+			builder.setBolt(PUBLISHER_BOLT, jmsBolt, 2).shuffleGrouping(OPTION_PRICING_BOLT);
+		}
 
-		builder.setBolt(PUBLISHER_BOLT, jmsBolt,2).shuffleGrouping(OPTION_PRICING_BOLT);
+
 
 		Config conf = new Config();
 		conf.setDebug(true);

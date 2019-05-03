@@ -73,6 +73,13 @@
 		  <artifactId>flux-core</artifactId>
 		  <version>${storm.version}</version>
 	  </dependency>
+
+	  <dependency>
+		  <groupId>org.apache.storm</groupId>
+		  <artifactId>storm-redis</artifactId>
+		  <version>${storm.version}</version>
+		  <type>jar</type>
+	  </dependency>
 	  <!-- Flux Wrappers include -->
 	  <dependency>
 		  <groupId>org.apache.storm</groupId>
