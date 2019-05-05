@@ -2,31 +2,50 @@ package com.wf.option.pricing;
 
 
 
-import java.io.*;
-import java.lang.IllegalStateException;
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.TreeSet;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import javax.jms.*;
-
-import com.google.gson.*;
-import com.wf.option.pricing.model.OptionData;
-import org.apache.storm.jms.spout.JmsMessageID;
-import org.apache.storm.shade.org.json.simple.JSONObject;
-import org.apache.storm.topology.base.BaseRichSpout;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import javax.jms.Connection;
+import javax.jms.ConnectionFactory;
+import javax.jms.Destination;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.MessageConsumer;
+import javax.jms.MessageListener;
+import javax.jms.Session;
+import javax.jms.TextMessage;
 
 import org.apache.storm.jms.JmsProvider;
 import org.apache.storm.jms.JmsTupleProducer;
+import org.apache.storm.jms.spout.JmsMessageID;
 import org.apache.storm.spout.SpoutOutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
+import org.apache.storm.topology.base.BaseRichSpout;
 import org.apache.storm.tuple.Values;
 import org.apache.storm.utils.Utils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.wf.option.pricing.model.OptionData;
 
 /**
  * A Storm <code>Spout</code> implementation that listens to a JMS topic or queue
@@ -76,6 +95,7 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
 
     private String refDataUrl;
     private boolean readAll;
+    private static int count=0;
 
     private Map<String, List<OptionData>> optionDataMap;
 
@@ -219,12 +239,17 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
     }
 
     public void nextTuple() {
-        Message msg = this.queue.poll();
-        if (msg == null) {
-            Utils.sleep(50);//TODO: may need to tune
-        } else {
+        Message msg = null;
+        
+		try {
+			msg = this.queue.poll(50, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+        if (msg != null) {
 
-            LOG.info("sending tuple: " + msg);
+            LOG.info("Fetching RefData: " + msg);
             // get the tuple from the handler
             try {
                 String symbol = null;
@@ -232,13 +257,13 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                 if(msg instanceof TextMessage) {
                     TextMessage textMessage = (TextMessage) msg;
                     String payLoad = textMessage.getText();
-                    LOG.info("Payload: {} ", payLoad);
+//                    LOG.info("Payload: {} ", payLoad);
 
                     JsonParser parser = new JsonParser();
                     JsonObject jsonObject = (JsonObject)parser.parse(payLoad);
                     symbol = jsonObject.get("symbol").getAsString();
                     stockPrice[0] = jsonObject.get("price").getAsDouble();
-                    LOG.info("Stock Price.. {}", stockPrice[0]);
+//                    LOG.info("Stock Price.. {}", stockPrice[0]);
                 }
                 List<OptionData> optionTobePublished = null;
                 if(readAll) {
@@ -247,17 +272,22 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                     //read
                     optionTobePublished = readFromUrl(refDataUrl+"/"+symbol);
                 }
-
+                LOG.info("Fetching  ReData Completed");
                 // ack if we're not in AUTO_ACKNOWLEDGE mode, or the message requests ACKNOWLEDGE
-                LOG.info("Requested deliveryMode: " + toDeliveryModeString(msg.getJMSDeliveryMode()));
-                LOG.info("Our deliveryMode: " + toDeliveryModeString(this.jmsAcknowledgeMode));
+//                LOG.info("Requested deliveryMode: " + toDeliveryModeString(msg.getJMSDeliveryMode()));
+//                LOG.info("Our deliveryMode: " + toDeliveryModeString(this.jmsAcknowledgeMode));"
+                LOG.info("Data Emission Started");
+                
+                count++;
+                String  strBatchId = "BatchId-" + count;
+                
                 if (this.isDurableSubscription()) {
                     LOG.info("Requesting acks.");
                     JmsMessageID messageId = new JmsMessageID(this.messageSequence++, msg.getJMSMessageID());
                     if(optionTobePublished != null && !optionTobePublished.isEmpty()) {
                         (optionTobePublished).parallelStream().forEach(optionData -> {
                             optionData.setStockPrice(stockPrice[0]);
-                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData, stockPrice[0]);
+                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData, stockPrice[0],strBatchId);
                             this.collector.emit(vals);
                         });
                     }
@@ -270,11 +300,12 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                 } else {
                     if(optionTobePublished != null && !optionTobePublished.isEmpty()) {
                         (optionTobePublished).parallelStream().forEach(optionData -> {
-                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData,stockPrice[0]);
+                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData,stockPrice[0],strBatchId);
                             this.collector.emit(vals);
                         });
                     }
                 }
+                LOG.info("Data Emission Completed");
             } catch (JMSException e) {
                 LOG.warn("Unable to convert JMS message: " + msg);
             }

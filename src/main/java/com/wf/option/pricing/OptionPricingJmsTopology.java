@@ -1,6 +1,5 @@
 package com.wf.option.pricing;
 
-import com.wf.option.pricing.kafka.KafkaBoltBuilder;
 import com.wf.option.pricing.model.OptionData;
 import com.wf.option.pricing.redis.RedisBoltBuilder;
 import org.apache.storm.Config;
@@ -83,7 +82,7 @@ public class OptionPricingJmsTopology {
 			RedisBoltBuilder redisBoltBuilder = ((RedisBoltBuilder) context.getBean("redisBuilder"));
 			RedisStoreBolt redisStoreBolt = redisBoltBuilder.createInstance();
 
-			builder.setBolt(PUBLISHER_BOLT, redisStoreBolt, publisherCount).shuffleGrouping(OPTION_PRICING_BOLT);
+			builder.setBolt(PUBLISHER_BOLT, redisStoreBolt, 2).shuffleGrouping(OPTION_PRICING_BOLT);
 
 		}else if(output.equalsIgnoreCase("jms")){
 			//JMS Bolt
