@@ -49,10 +49,9 @@ import com.google.gson.JsonObject;
 public class OptionPricerBolt extends BaseBasicBolt {
 	private static Logger logger = LoggerFactory.getLogger("OptionPricerBolt");
 
-	private boolean autoAck = false;
-
-	private Fields declaredFields;
 	private String name;
+
+	private boolean autoAck;
 
 	public OptionPricerBolt(String name, boolean autoAck){
 		this.name = name;
@@ -77,12 +76,13 @@ public class OptionPricerBolt extends BaseBasicBolt {
 			double optionPrice = price(optionData, underlyingPrice);
 			optionData.setOptionPrice(optionPrice);
 			optionData.setBatchId(batchId);
+			optionData.setLastUpdatedTime(LocalDateTime.now());
 			logger.info("Final price calculated for option :"+optionData.getOptionName()+" is :"+optionPrice);
 			logger.info("------------------------End--------------------------"+System.nanoTime());
 
 			//if(this.declaredFields != null){
 				logger.info("[" + this.name + "] emitting: " + tuple + ", optionPrice: " + optionPrice);
-				collector.emit(new Values(optionData,batchId));
+				collector.emit(new Values(optionData));
 			//}
 		}catch(Exception e) {
 			logger.error("Failed to price the option {}", optionData.getOptionName(),e);
