@@ -68,27 +68,28 @@ public class OptionPricerBolt extends BaseBasicBolt {
 //	}
 
 	public void execute(Tuple tuple, BasicOutputCollector collector) {
-		logger.info("--------------------------------------------------"+System.nanoTime());
+//		logger.info("--------------------------------------------------"+System.nanoTime());
 		List<Object> values = tuple.getValues();
-		OptionData  optionData = (OptionData) values.get(0);
-//		OptionData optionData = OptionData.fromJsonString((String) values.get(0));
+//		OptionData  optionData = (OptionData) values.get(0);
+		OptionData optionData = OptionData.fromJsonString((String) values.get(0));
 		double  underlyingPrice = (Double) values.get(1);
+		String  batchId = (String)values.get(2);
 		if(values.get(1) != null) {
 			underlyingPrice = (double) values.get(1);
 		}
 
-		logger.info("Inside execute method of OptionPricerBolt : underlyingPrice :"+underlyingPrice);
+//		logger.info("Inside execute method of OptionPricerBolt : underlyingPrice :"+underlyingPrice);
 		try {
 			double optionPrice = price(optionData, underlyingPrice);
 			optionData.setOptionPrice(optionPrice);
 
-			logger.info("Final price calculated for option :"+optionData.getOptionName()+" is :"+optionPrice);
-			logger.info("------------------------End--------------------------"+System.nanoTime());
+			logger.info("Final price calculated for option :"+optionData.getOptionName()+" is :"+optionPrice + " BatchId-" + batchId);
+//			logger.info("------------------------End--------------------------"+System.nanoTime());
 
-			//if(this.declaredFields != null){
-				logger.info("[" + this.name + "] emitting: " + tuple + ", optionPrice: " + optionPrice);
-				collector.emit(new Values(optionData));
-			//}
+//			if(this.declaredFields != null){
+//				logger.info("[" + this.name + "] emitting: " + tuple + ", optionPrice: " + optionPrice);
+//				collector.emit(new Values(optionData));
+//			}
 		}catch(Exception e) {
 			logger.error("Failed to price the option {}", optionData.getOptionName(),e);
 		}

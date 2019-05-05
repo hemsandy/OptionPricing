@@ -58,18 +58,21 @@ public class OptionPricingJmsTopology {
 		TopologyBuilder builder = new TopologyBuilder();
 		builder.setSpout(OPTION_WITH_STOCK_PRICE_SPOUT, priceTickerSpout);
 		//Transformer Bolt
-		builder.setBolt(OPTION_TRANSFORMER_BOLT, new OptionDataReaderBolt(),2)
-				.shuffleGrouping(OPTION_WITH_STOCK_PRICE_SPOUT);
-		//Pricing Bolt
-		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true), 5)
-				.shuffleGrouping(OPTION_TRANSFORMER_BOLT);
+//		builder.setBolt(OPTION_TRANSFORMER_BOLT, new OptionDataReaderBolt(),2)
+//				.shuffleGrouping(OPTION_WITH_STOCK_PRICE_SPOUT);
+//		//Pricing Bolt
+//		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true), 5)
+//				.shuffleGrouping(OPTION_TRANSFORMER_BOLT);
+		
+		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true), 3)
+		.shuffleGrouping(OPTION_WITH_STOCK_PRICE_SPOUT);
 
 		if(args.length >2 && args[2] != null && args[2].equalsIgnoreCase("redis")) {
 			//Redis Bolt
 			RedisBoltBuilder redisBoltBuilder = ((RedisBoltBuilder) context.getBean("redisBuilder"));
 			RedisStoreBolt redisStoreBolt = redisBoltBuilder.createInstance();
 
-			builder.setBolt(PUBLISHER_BOLT, redisStoreBolt, 2).shuffleGrouping(OPTION_PRICING_BOLT);
+//			builder.setBolt(PUBLISHER_BOLT, redisStoreBolt, 2).shuffleGrouping(OPTION_PRICING_BOLT);
 
 		}else{
 			//JMS Bolt
@@ -94,13 +97,13 @@ public class OptionPricingJmsTopology {
 					return tm;
 				}
 			});
-			builder.setBolt(PUBLISHER_BOLT, jmsBolt, 2).shuffleGrouping(OPTION_PRICING_BOLT);
+//			builder.setBolt(PUBLISHER_BOLT, jmsBolt, 2).shuffleGrouping(OPTION_PRICING_BOLT);
 		}
 
 
 
 		Config conf = new Config();
-		conf.setDebug(true);
+//		conf.setDebug(true);
 
 		if(args[1].equalsIgnoreCase("local")){
 			conf.setMaxTaskParallelism(1);
