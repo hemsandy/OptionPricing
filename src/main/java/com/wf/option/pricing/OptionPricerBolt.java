@@ -71,14 +71,14 @@ public class OptionPricerBolt extends BaseBasicBolt {
 			underlyingPrice = (double) values.get(1);
 		}
 
-//		logger.info("Inside execute method of OptionPricerBolt : underlyingPrice :"+underlyingPrice);
+		//logger.info("Inside execute method of OptionPricerBolt : underlyingPrice :"+underlyingPrice);
 		try {
 			double optionPrice = price(optionData, underlyingPrice);
 			optionData.setOptionPrice(optionPrice);
 			optionData.setBatchId(batchId);
 			optionData.setLastUpdatedTime(LocalDateTime.now());
-			logger.info("Final price calculated for option :"+optionData.getOptionName()+" is :"+optionPrice);
-			logger.info("------------------------End--------------------------"+System.nanoTime());
+			logger.info("Final price calculated for option : {} is : {} : {}", optionData.getOptionName(), optionPrice, batchId);
+			//logger.info("------------------------End--------------------------"+System.nanoTime());
 
 			//if(this.declaredFields != null){
 				logger.info("[" + this.name + "] emitting: " + tuple + ", optionPrice: " + optionPrice);

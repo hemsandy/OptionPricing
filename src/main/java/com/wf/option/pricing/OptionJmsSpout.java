@@ -279,7 +279,7 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                 LOG.info("Data Emission Started");
                 
                 count++;
-                String  strBatchId = "BatchId-" + count;
+                String  strBatchId = "BATCH_ID_" + count;
                 
                 if (this.isDurableSubscription()) {
                     LOG.info("Requesting acks.");
