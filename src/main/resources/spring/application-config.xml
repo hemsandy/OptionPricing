@@ -11,6 +11,7 @@
                      <value>properties/option-pricing.properties</value>
               </property>
        </bean>
+    <!-- redis -->
 
     <bean id="redisBuilder" class="com.wf.option.pricing.redis.RedisBoltBuilder" >
         <constructor-arg name="configuration" >
@@ -24,6 +25,18 @@
         </constructor-arg>
     </bean>
 
+    <!-- Kafka -->
+    <bean id="kafkaBoltBuilder" class="com.wf.option.pricing.kafka.KafkaBoltBuilder" >
+        <constructor-arg name="configuration" >
+            <map>
+                <entry key="bootstrap.servers" value="${option.pricing.kafka.server}" />
+                <entry key="acks" value="1" />
+                <entry key="key.serializer" value="org.apache.kafka.common.serialization.StringSerializer" />
+                <entry key="value.serializer" value="org.apache.kafka.common.serialization.StringSerializer" />
+                <entry key="topic" value="${option.pricing.kakfa.publish.topic}" />
+            </map>
+        </constructor-arg>
+    </bean>
        <!--  JMS Connection Details -->
 
        <!-- a pooling based JMS provider -->

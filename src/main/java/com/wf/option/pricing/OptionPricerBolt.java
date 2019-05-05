@@ -70,8 +70,8 @@ public class OptionPricerBolt extends BaseBasicBolt {
 	public void execute(Tuple tuple, BasicOutputCollector collector) {
 		logger.info("--------------------------------------------------"+System.nanoTime());
 		List<Object> values = tuple.getValues();
-		OptionData  optionData = (OptionData) values.get(0);
-//		OptionData optionData = OptionData.fromJsonString((String) values.get(0));
+//		OptionData  optionData = (OptionData) values.get(0);
+		OptionData optionData = OptionData.fromJsonString((String) values.get(0));
 		double  underlyingPrice = (Double) values.get(1);
 		if(values.get(1) != null) {
 			underlyingPrice = (double) values.get(1);
@@ -84,7 +84,7 @@ public class OptionPricerBolt extends BaseBasicBolt {
 
 			logger.info("Final price calculated for option :"+optionData.getOptionName()+" is :"+optionPrice);
 			logger.info("------------------------End--------------------------"+System.nanoTime());
-
+			optionData.setLastUpdatedTime(LocalDateTime.now());
 			//if(this.declaredFields != null){
 				logger.info("[" + this.name + "] emitting: " + tuple + ", optionPrice: " + optionPrice);
 				collector.emit(new Values(optionData));
@@ -146,5 +146,6 @@ public class OptionPricerBolt extends BaseBasicBolt {
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
 		declarer.declare(new Fields("optionDataWithPrice"));
 	}
+
 
 }

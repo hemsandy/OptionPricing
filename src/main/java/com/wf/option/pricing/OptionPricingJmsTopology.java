@@ -1,5 +1,6 @@
 package com.wf.option.pricing;
 
+import com.wf.option.pricing.kafka.KafkaBoltBuilder;
 import com.wf.option.pricing.model.OptionData;
 import com.wf.option.pricing.redis.RedisBoltBuilder;
 import org.apache.storm.Config;
@@ -7,6 +8,7 @@ import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
 import org.apache.storm.jms.JmsMessageProducer;
 import org.apache.storm.jms.bolt.JmsBolt;
+import org.apache.storm.kafka.bolt.KafkaBolt;
 import org.apache.storm.redis.bolt.RedisStoreBolt;
 import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.tuple.ITuple;
@@ -34,13 +36,21 @@ public class OptionPricingJmsTopology {
 	public static void main(String[] args) throws Exception{
 
 		if(args == null || args.length < 1) {
-			log.error("USAGE: java ..OptionPricingJmsTopology http://refdataurl local/remote");
-			System.out.println("USAGE: java ..OptionPricingJmsTopology http://refdataurl local/remote");
+			log.error("USAGE: java ..OptionPricingJmsTopology http://refdataurl local/remote jms/redis/kafka");
+			System.out.println("USAGE: java ..OptionPricingJmsTopology http://refdataurl local/remote jms/redis/kafka");
 			System.exit(0);
 		}
 		log.info("Creating Topology {}", OPTION_PRICING_TOPOLOGY);
 
 		ApplicationContext context = new ClassPathXmlApplicationContext("spring/application-config.xml");
+		//Configuration
+		Config conf = new Config();
+		conf.setDebug(true);
+		int workerCount = 2;
+		int spoutCount = 5;
+		int pricerCount = 5;
+		int publisherCount = 2;
+
 
 		OptionJMSProvider optionJMSQueueProvider = new OptionJMSProvider(context, "jmsActiveMQFactory", "priceTickerSource");
 		OptionJMSProvider optionJMSTopicProvider = new OptionJMSProvider(context, "jmsActiveMQFactory", "optionPriceTopic");
@@ -56,22 +66,26 @@ public class OptionPricingJmsTopology {
 		priceTickerSpout.setDistributed(false);
 
 		TopologyBuilder builder = new TopologyBuilder();
-		builder.setSpout(OPTION_WITH_STOCK_PRICE_SPOUT, priceTickerSpout);
+		builder.setSpout(OPTION_WITH_STOCK_PRICE_SPOUT, priceTickerSpout,spoutCount);
 		//Transformer Bolt
-		builder.setBolt(OPTION_TRANSFORMER_BOLT, new OptionDataReaderBolt(),2)
-				.shuffleGrouping(OPTION_WITH_STOCK_PRICE_SPOUT);
+//		builder.setBolt(OPTION_TRANSFORMER_BOLT, new OptionDataReaderBolt(),spoutCount)
+//				.shuffleGrouping(OPTION_WITH_STOCK_PRICE_SPOUT);
 		//Pricing Bolt
-		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true), 5)
-				.shuffleGrouping(OPTION_TRANSFORMER_BOLT);
-
-		if(args.length >2 && args[2] != null && args[2].equalsIgnoreCase("redis")) {
+		builder.setBolt(OPTION_PRICING_BOLT, new OptionPricerBolt(OPTION_PRICING_BOLT, true), pricerCount)
+				//.shuffleGrouping(OPTION_TRANSFORMER_BOLT);
+				.shuffleGrouping(OPTION_WITH_STOCK_PRICE_SPOUT);
+		String output = "jms";
+		if(args.length >2 && args[2] != null) {
+			output = args[2];
+		}
+		if(output.equalsIgnoreCase("redis")) {
 			//Redis Bolt
 			RedisBoltBuilder redisBoltBuilder = ((RedisBoltBuilder) context.getBean("redisBuilder"));
 			RedisStoreBolt redisStoreBolt = redisBoltBuilder.createInstance();
 
-			builder.setBolt(PUBLISHER_BOLT, redisStoreBolt, 2).shuffleGrouping(OPTION_PRICING_BOLT);
+			builder.setBolt(PUBLISHER_BOLT, redisStoreBolt, publisherCount).shuffleGrouping(OPTION_PRICING_BOLT);
 
-		}else{
+		}else if(output.equalsIgnoreCase("jms")){
 			//JMS Bolt
 
 			//bolt that subscribes to the intermediate bolt, and publishes to a JMS Topic
@@ -94,13 +108,13 @@ public class OptionPricingJmsTopology {
 					return tm;
 				}
 			});
-			builder.setBolt(PUBLISHER_BOLT, jmsBolt, 2).shuffleGrouping(OPTION_PRICING_BOLT);
+			builder.setBolt(PUBLISHER_BOLT, jmsBolt, publisherCount).shuffleGrouping(OPTION_PRICING_BOLT);
+		}else if(output.equalsIgnoreCase("kafka")) {
+			KafkaBoltBuilder kafkaBoltBuilder = (KafkaBoltBuilder)context.getBean("kafkaBoltBuilder");
+			KafkaBolt<String, String> kafkaBolt = kafkaBoltBuilder.createKafkaBolt();
+			builder.setBolt(PUBLISHER_BOLT, kafkaBolt, publisherCount).shuffleGrouping(OPTION_PRICING_BOLT);
 		}
 
-
-
-		Config conf = new Config();
-		conf.setDebug(true);
 
 		if(args[1].equalsIgnoreCase("local")){
 			conf.setMaxTaskParallelism(1);
@@ -108,7 +122,7 @@ public class OptionPricingJmsTopology {
 			LocalCluster cluster = new LocalCluster();
 			cluster.submitTopology(OPTION_PRICING_TOPOLOGY, conf, builder.createTopology());
 		}else{
-			conf.setNumWorkers(2);
+			conf.setNumWorkers(workerCount);
 			StormSubmitter.submitTopology(OPTION_PRICING_TOPOLOGY, conf, builder.createTopology());
 		}
 		log.info("Submitted Topology {}", OPTION_PRICING_TOPOLOGY);

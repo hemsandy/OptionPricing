@@ -5,6 +5,7 @@ import com.google.gson.*;
 import java.io.Serializable;
 import java.lang.reflect.Type;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 
@@ -19,6 +20,7 @@ public class OptionData implements Serializable {
 	private LocalDate expiryDate;
 	private double stockPrice;
 	private double optionPrice;
+	private LocalDateTime lastUpdatedTime;
 
 	public OptionData(){
 		
@@ -34,11 +36,14 @@ public class OptionData implements Serializable {
 		sb.append("volatility : "+volatility + " -- ");
 		sb.append("stockPrice : "+stockPrice + " -- ");
 		sb.append("optionPrice : "+optionPrice + " -- ");
+		sb.append("LastUpdateTime : "+lastUpdatedTime);
+
 		return sb.toString();
 	}
 
 	public OptionData(String stockName, String optionName, double strike, double voloatility,
-					  LocalDate expiry,double stockPrice, double optionPrice){
+					  LocalDate expiry,double stockPrice, double optionPrice,
+					  LocalDateTime lastUpdatedTime){
 		this.stockName = stockName;
 		this.optionName = optionName;
 		this.strike = strike;
@@ -47,6 +52,7 @@ public class OptionData implements Serializable {
 		this.stockPrice = stockPrice;
 		this.optionPrice = optionPrice;
 		this.stockName = optionName.substring(0,4);
+		this.lastUpdatedTime = lastUpdatedTime;
 	}
 
 	public String getStockName() {
@@ -139,4 +145,11 @@ public class OptionData implements Serializable {
 		return optionData;
 	}
 
+	public LocalDateTime getLastUpdatedTime() {
+		return lastUpdatedTime;
+	}
+
+	public void setLastUpdatedTime(LocalDateTime lastUpdatedTime) {
+		this.lastUpdatedTime = lastUpdatedTime;
+	}
 }
