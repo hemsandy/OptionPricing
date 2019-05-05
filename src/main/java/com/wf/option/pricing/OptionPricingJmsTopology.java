@@ -1,5 +1,6 @@
 package com.wf.option.pricing;
 
+import com.wf.option.pricing.kafka.KafkaBoltBuilder;
 import com.wf.option.pricing.model.OptionData;
 import com.wf.option.pricing.redis.RedisBoltBuilder;
 import org.apache.storm.Config;
@@ -11,7 +12,6 @@ import org.apache.storm.kafka.bolt.KafkaBolt;
 import org.apache.storm.redis.bolt.RedisStoreBolt;
 import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.tuple.ITuple;
-import org.apache.storm.tuple.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;

@@ -21,6 +21,7 @@ public class OptionData implements Serializable {
 	private double stockPrice;
 	private double optionPrice;
 	private LocalDateTime lastUpdatedTime;
+	private String batchId;
 
 	public OptionData(){
 		
@@ -36,14 +37,15 @@ public class OptionData implements Serializable {
 		sb.append("volatility : "+volatility + " -- ");
 		sb.append("stockPrice : "+stockPrice + " -- ");
 		sb.append("optionPrice : "+optionPrice + " -- ");
-		sb.append("LastUpdateTime : "+lastUpdatedTime);
+		sb.append("LastUpdateTime : "+lastUpdatedTime + " -- ");
+		sb.append("batchId : "+batchId);
 
 		return sb.toString();
 	}
 
 	public OptionData(String stockName, String optionName, double strike, double voloatility,
 					  LocalDate expiry,double stockPrice, double optionPrice,
-					  LocalDateTime lastUpdatedTime){
+					  LocalDateTime lastUpdatedTime,String  batchId){
 		this.stockName = stockName;
 		this.optionName = optionName;
 		this.strike = strike;
@@ -53,6 +55,7 @@ public class OptionData implements Serializable {
 		this.optionPrice = optionPrice;
 		this.stockName = optionName.substring(0,4);
 		this.lastUpdatedTime = lastUpdatedTime;
+		this.batchId = batchId;
 	}
 
 	public String getStockName() {
@@ -151,5 +154,13 @@ public class OptionData implements Serializable {
 
 	public void setLastUpdatedTime(LocalDateTime lastUpdatedTime) {
 		this.lastUpdatedTime = lastUpdatedTime;
+	}
+
+	public String getBatchId() {
+		return batchId;
+	}
+
+	public void setBatchId(String batchId) {
+		this.batchId = batchId;
 	}
 }

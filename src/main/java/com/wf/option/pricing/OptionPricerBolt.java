@@ -60,12 +60,6 @@ public class OptionPricerBolt extends BaseBasicBolt {
 
 	}
 
-//	@SuppressWarnings("rawtypes")
-//	public void prepare(Map stormConf, TopologyContext context,
-//						OutputCollector collector) {
-//		this.collector = collector;
-//
-//	}
 
 	public void execute(Tuple tuple, BasicOutputCollector collector) {
 //		logger.info("--------------------------------------------------"+System.nanoTime());
@@ -82,22 +76,18 @@ public class OptionPricerBolt extends BaseBasicBolt {
 		try {
 			double optionPrice = price(optionData, underlyingPrice);
 			optionData.setOptionPrice(optionPrice);
-
+			optionData.setBatchId(batchId);
 			logger.info("Final price calculated for option :"+optionData.getOptionName()+" is :"+optionPrice);
 			logger.info("------------------------End--------------------------"+System.nanoTime());
 
 			//if(this.declaredFields != null){
 				logger.info("[" + this.name + "] emitting: " + tuple + ", optionPrice: " + optionPrice);
-				collector.emit(new Values(optionData));
+				collector.emit(new Values(optionData,batchId));
 			//}
 		}catch(Exception e) {
 			logger.error("Failed to price the option {}", optionData.getOptionName(),e);
 		}
 
-//		if(this.autoAck){
-//			logger.info("[" + this.name + "] ACKing tuple: " + tuple);
-//			collector.ack(tuple);
-//		}
 	}
 
 	private double price(OptionData optionData, double underlying) {
