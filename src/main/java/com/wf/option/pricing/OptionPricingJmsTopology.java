@@ -2,6 +2,7 @@ package com.wf.option.pricing;
 
 import com.wf.option.pricing.kafka.KafkaBoltBuilder;
 import com.wf.option.pricing.model.OptionData;
+import com.wf.option.pricing.redis.OptionPriceRedisBolt;
 import com.wf.option.pricing.redis.RedisBoltBuilder;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
@@ -11,6 +12,7 @@ import org.apache.storm.jms.bolt.JmsBolt;
 import org.apache.storm.kafka.bolt.KafkaBolt;
 import org.apache.storm.redis.bolt.RedisStoreBolt;
 import org.apache.storm.topology.TopologyBuilder;
+import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.ITuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,11 +46,11 @@ public class OptionPricingJmsTopology {
 		ApplicationContext context = new ClassPathXmlApplicationContext("spring/application-config.xml");
 		//Configuration
 		Config conf = new Config();
-		conf.setDebug(true);
+		//conf.setDebug(false);
 		int workerCount = 2;
-		int spoutCount = 5;
+		int spoutCount = 1;
 		int pricerCount = 5;
-		int publisherCount = 2;
+		int publisherCount = 5;
 
 
 		OptionJMSProvider optionJMSQueueProvider = new OptionJMSProvider(context, "jmsActiveMQFactory", "priceTickerSource");
@@ -80,9 +82,10 @@ public class OptionPricingJmsTopology {
 		if(output.equalsIgnoreCase("redis")) {
 			//Redis Bolt
 			RedisBoltBuilder redisBoltBuilder = ((RedisBoltBuilder) context.getBean("redisBuilder"));
-			RedisStoreBolt redisStoreBolt = redisBoltBuilder.createInstance();
+			OptionPriceRedisBolt redisStoreBolt = redisBoltBuilder.createInstance();
 
-			builder.setBolt(PUBLISHER_BOLT, redisStoreBolt, 2).shuffleGrouping(OPTION_PRICING_BOLT);
+			builder.setBolt(PUBLISHER_BOLT, redisStoreBolt, publisherCount)
+					.fieldsGrouping(OPTION_PRICING_BOLT, new Fields("optionName"));
 
 		}else if(output.equalsIgnoreCase("jms")){
 			//JMS Bolt
@@ -107,11 +110,16 @@ public class OptionPricingJmsTopology {
 					return tm;
 				}
 			});
-			builder.setBolt(PUBLISHER_BOLT, jmsBolt, publisherCount).shuffleGrouping(OPTION_PRICING_BOLT);
+			builder.setBolt(PUBLISHER_BOLT, jmsBolt, publisherCount)
+					.fieldsGrouping(OPTION_PRICING_BOLT, new Fields("optionName"));
+
 		}else if(output.equalsIgnoreCase("kafka")) {
+
 			KafkaBoltBuilder kafkaBoltBuilder = (KafkaBoltBuilder)context.getBean("kafkaBoltBuilder");
 			KafkaBolt<String, String> kafkaBolt = kafkaBoltBuilder.createKafkaBolt();
-			builder.setBolt(PUBLISHER_BOLT, kafkaBolt, publisherCount).shuffleGrouping(OPTION_PRICING_BOLT);
+			builder.setBolt(PUBLISHER_BOLT, kafkaBolt, publisherCount)
+					.fieldsGrouping(OPTION_PRICING_BOLT, new Fields("optionName"));
+
 		}
 
 

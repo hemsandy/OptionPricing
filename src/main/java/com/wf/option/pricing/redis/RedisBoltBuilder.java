@@ -15,7 +15,7 @@ public class RedisBoltBuilder {
         this.configuration = configuration;
     }
 
-    public RedisStoreBolt createInstance() {
+    public OptionPriceRedisBolt createInstance() {
 
         String redisHost = configuration.get("redisHost");
         int redisPort = Integer.parseInt(configuration.get("redisPort"));
@@ -30,7 +30,7 @@ public class RedisBoltBuilder {
                 .build();
         RedisOptionDataMapper redisStoreMapper = new RedisOptionDataMapper();
 
-        RedisStoreBolt storeBolt = new RedisStoreBolt(jedisPoolConfig, redisStoreMapper);
+        OptionPriceRedisBolt storeBolt = new OptionPriceRedisBolt(jedisPoolConfig, redisStoreMapper);
 
         return storeBolt;
 

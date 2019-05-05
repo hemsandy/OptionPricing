@@ -282,12 +282,14 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                 String  strBatchId = "BATCH_ID_" + count;
                 
                 if (this.isDurableSubscription()) {
-                    LOG.info("Requesting acks.");
+                    //LOG.info("Requesting acks.");
                     JmsMessageID messageId = new JmsMessageID(this.messageSequence++, msg.getJMSMessageID());
                     if(optionTobePublished != null && !optionTobePublished.isEmpty()) {
                         (optionTobePublished).parallelStream().forEach(optionData -> {
+                            optionData.setBatchId(strBatchId);
                             optionData.setStockPrice(stockPrice[0]);
-                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData, stockPrice[0],strBatchId);
+                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData,
+                                    optionData.getOptionName());
                             this.collector.emit(vals);
                         });
                     }
@@ -300,7 +302,10 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
                 } else {
                     if(optionTobePublished != null && !optionTobePublished.isEmpty()) {
                         (optionTobePublished).parallelStream().forEach(optionData -> {
-                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData,stockPrice[0],strBatchId);
+                            optionData.setBatchId(strBatchId);
+                            optionData.setStockPrice(stockPrice[0]);
+                            Values vals = ((OptionJMSTupleProducer) (this.tupleProducer)).toTuple(optionData,
+                                    optionData.getOptionName());
                             this.collector.emit(vals);
                         });
                     }
@@ -324,12 +329,12 @@ public class OptionJmsSpout extends BaseRichSpout implements MessageListener {
         if(msgId.equals(oldest)) {
             if (msg != null) {
                 try {
-                    LOG.info("Committing...");
+//                    LOG.info("Committing...");
                     msg.acknowledge();
-                    LOG.info("JMS Message acked: " + msgId);
+//                    LOG.info("JMS Message acked: " + msgId);
                     this.toCommit.remove(msgId);
                 } catch (JMSException e) {
-                    LOG.warn("Error acknowldging JMS message: " + msgId, e);
+                    LOG.warn("Error acknowledging JMS message: " + msgId, e);
                 }
             } else {
                 LOG.warn("Couldn't acknowledge unknown JMS message ID: " + msgId);

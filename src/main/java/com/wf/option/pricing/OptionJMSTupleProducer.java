@@ -24,11 +24,11 @@ public class OptionJMSTupleProducer implements JmsTupleProducer {
         }
     }
 
-    public Values toTuple(OptionData optionData, double underlyingPrice, String batchId) {
-        return new Values(optionData.toJSONString(),underlyingPrice, batchId );
+    public Values toTuple(OptionData optionData, String optionName) {
+        return new Values(optionData,optionName );
     }
 
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
-        declarer.declare(new Fields("optionPriceJson","underlyingPrice", "batchId"));
+        declarer.declare(new Fields("optionData","optionName"));
     }
 }

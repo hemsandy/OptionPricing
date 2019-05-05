@@ -1,18 +1,11 @@
 package com.wf.option.pricing;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import com.wf.option.pricing.model.OptionData;
-import org.apache.storm.task.OutputCollector;
-import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.BasicOutputCollector;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseBasicBolt;
@@ -44,8 +37,6 @@ import org.jquantlib.time.calendars.Target;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.gson.JsonObject;
-
 public class OptionPricerBolt extends BaseBasicBolt {
 	private static Logger logger = LoggerFactory.getLogger("OptionPricerBolt");
 
@@ -63,26 +54,22 @@ public class OptionPricerBolt extends BaseBasicBolt {
 	public void execute(Tuple tuple, BasicOutputCollector collector) {
 //		logger.info("--------------------------------------------------"+System.nanoTime());
 		List<Object> values = tuple.getValues();
-//		OptionData  optionData = (OptionData) values.get(0);
-		OptionData optionData = OptionData.fromJsonString((String) values.get(0));
-		double  underlyingPrice = (Double) values.get(1);
-		String  batchId = (String)values.get(2);
-		if(values.get(1) != null) {
-			underlyingPrice = (double) values.get(1);
-		}
+		OptionData  optionData = (OptionData) values.get(0);
+//		OptionData optionData = OptionData.fromJsonString((String) values.get(0));
+		double  underlyingPrice = optionData.getStockPrice();
+		String  optionName = (String)values.get(1);
 
 		//logger.info("Inside execute method of OptionPricerBolt : underlyingPrice :"+underlyingPrice);
 		try {
 			double optionPrice = price(optionData, underlyingPrice);
 			optionData.setOptionPrice(optionPrice);
-			optionData.setBatchId(batchId);
 			optionData.setLastUpdatedTime(LocalDateTime.now());
-			logger.info("Final price calculated for option : {} is : {} : {}", optionData.getOptionName(), optionPrice, batchId);
+			logger.info("Final price calculated for option : {} is : {} : {}", optionData.getOptionName(), optionPrice, optionData.getBatchId());
 			//logger.info("------------------------End--------------------------"+System.nanoTime());
 
 			//if(this.declaredFields != null){
-				logger.info("[" + this.name + "] emitting: " + tuple + ", optionPrice: " + optionPrice);
-				collector.emit(new Values(optionData));
+				//logger.info("[{}] emitting: {} with optionPrice: {}", this.name, tuple,optionPrice);
+				collector.emit(new Values(optionData,optionName));
 			//}
 		}catch(Exception e) {
 			logger.error("Failed to price the option {}", optionData.getOptionName(),e);
@@ -135,7 +122,7 @@ public class OptionPricerBolt extends BaseBasicBolt {
 	}
 
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		declarer.declare(new Fields("optionDataWithPrice"));
+		declarer.declare(new Fields("optionDataWithPrice","optionName"));
 	}
 
 }
