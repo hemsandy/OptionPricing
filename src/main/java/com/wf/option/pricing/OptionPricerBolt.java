@@ -64,7 +64,7 @@ public class OptionPricerBolt extends BaseBasicBolt {
 			double optionPrice = price(optionData, underlyingPrice);
 			optionData.setOptionPrice(optionPrice);
 			optionData.setLastUpdatedTime(LocalDateTime.now());
-			logger.info("Final price calculated for option : {} is : {} : {}", optionData.getOptionName(), optionPrice, optionData.getBatchId());
+			logger.info("Final price calculated for option : {} is : {} : **{}**", optionData.getOptionName(), optionPrice, optionData.getBatchId());
 			//logger.info("------------------------End--------------------------"+System.nanoTime());
 
 			//if(this.declaredFields != null){

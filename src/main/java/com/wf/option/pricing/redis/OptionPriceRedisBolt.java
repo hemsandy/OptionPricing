@@ -3,6 +3,7 @@ package com.wf.option.pricing.redis;
 import org.apache.storm.Config;
 import org.apache.storm.Constants;
 import org.apache.storm.redis.bolt.AbstractRedisBolt;
+import org.apache.storm.redis.bolt.RedisStoreBolt;
 import org.apache.storm.redis.common.config.JedisClusterConfig;
 import org.apache.storm.redis.common.config.JedisPoolConfig;
 import org.apache.storm.redis.common.mapper.RedisDataTypeDescription;
@@ -15,15 +16,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.Pipeline;
 
 import java.util.Map;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by hems on 05/05/19.
  */
-public class OptionPriceRedisBolt extends AbstractRedisBolt {
+public class OptionPriceRedisBolt extends RedisStoreBolt {
 
     private Logger logger = LoggerFactory.getLogger(OptionPriceRedisBolt.class);
 
@@ -35,7 +35,7 @@ public class OptionPriceRedisBolt extends AbstractRedisBolt {
     private String host;private int port;
     private long counter = 0;
 
-    protected LinkedBlockingQueue<Tuple> tupleQueue = new LinkedBlockingQueue<>();
+    protected Map<String,String> tupleMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor for single Redis environment (JedisPool)
@@ -43,7 +43,7 @@ public class OptionPriceRedisBolt extends AbstractRedisBolt {
      * @param storeMapper mapper containing which datatype, storing value's key that Bolt uses
      */
     public OptionPriceRedisBolt(JedisPoolConfig config, RedisStoreMapper storeMapper) {
-        super(config);
+        super(config, storeMapper);
         this.storeMapper = storeMapper;
         RedisDataTypeDescription dataTypeDescription = storeMapper.getDataTypeDescription();
         this.dataType = dataTypeDescription.getDataType();
@@ -57,7 +57,6 @@ public class OptionPriceRedisBolt extends AbstractRedisBolt {
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector collector) {
         logger.info("prepare-JEDIS POOL");
         super.prepare(map, topologyContext, collector);
-        this.jedisPool = new JedisPool(host, port);
     }
 
     /**
@@ -66,7 +65,7 @@ public class OptionPriceRedisBolt extends AbstractRedisBolt {
      * @param storeMapper mapper containing which datatype, storing value's key that Bolt uses
      */
     public OptionPriceRedisBolt(JedisClusterConfig config, RedisStoreMapper storeMapper) {
-        super(config);
+        super(config, storeMapper);
         this.storeMapper = storeMapper;
 
         RedisDataTypeDescription dataTypeDescription = storeMapper.getDataTypeDescription();
@@ -81,12 +80,15 @@ public class OptionPriceRedisBolt extends AbstractRedisBolt {
     public void process(Tuple input) {
 
         try {
+            logger.info("Received Tuple: {}",input);
             if(isTickTuple(input)) {
                 //Write to Redis
                 logger.info("TICK_TUPLE. RECEIVED");
                 writeToRedis();
             }else {
-                tupleQueue.add(input);
+                String key = storeMapper.getKeyFromTuple(input);
+                String value = storeMapper.getValueFromTuple(input);
+                tupleMap.put(key, value);
                 counter ++;
                 if(counter >= 1000) {
                     writeToRedis();
@@ -122,22 +124,28 @@ public class OptionPriceRedisBolt extends AbstractRedisBolt {
                 && tuple.getSourceStreamId().equals(Constants.SYSTEM_TICK_STREAM_ID);
     }
 
-
-    private int writeToRedis() throws Exception{
-        logger.info("writeToRedis..start");
-        Jedis jedis = null;
-        int status = -1;
+    @Override
+    protected void onTickTuple(Tuple tuple) {
+        logger.info("TICK_TUPLE");
         try {
-            jedis = jedisPool.getResource();
-            Tuple eachTuple = null;
-            Pipeline pipeline = jedis.pipelined();
-            while ((eachTuple=tupleQueue.poll()) != null) {
-                String key = storeMapper.getKeyFromTuple(eachTuple);
-                String value = storeMapper.getValueFromTuple(eachTuple);
-                pipeline.set(key,value);
-            }
+            writeToRedis();
+        } catch (Exception e) {
+            logger.error("failed to writeToRedis",e);
+        }
 
+    }
+
+    private synchronized int writeToRedis() throws Exception{
+        logger.info("writeToRedis..start");
+        int status = -1;
+        final Jedis jedis = jedisPool.getResource();
+        try {
+            tupleMap.entrySet().stream().forEach(mapEntry -> {
+                jedis.set(mapEntry.getKey(), mapEntry.getValue());
+            });
+            tupleMap.clear();
             status = 0;
+
         }catch(Exception ex) {
             throw ex;
         }finally {

@@ -25,6 +25,15 @@
         </constructor-arg>
     </bean>
 
+    <bean id="udpPublisherBolt" class="com.wf.option.pricing.udp.UdpPublisherBolt" >
+        <constructor-arg index="0" >
+            <map>
+                <entry key="udp.host" value="${option.pricing.udp.host}" />
+                <entry key="udp.port" value="${option.pricing.udp.port}" />
+            </map>
+        </constructor-arg>
+    </bean>
+
     <!-- Kafka -->
     <bean id="kafkaBoltBuilder" class="com.wf.option.pricing.kafka.KafkaBoltBuilder" >
         <constructor-arg name="configuration" >
@@ -32,7 +41,7 @@
                 <entry key="bootstrap.servers" value="${option.pricing.kafka.server}" />
                 <entry key="acks" value="1" />
                 <entry key="key.serializer" value="org.apache.kafka.common.serialization.StringSerializer" />
-                <entry key="value.serializer" value="org.apache.kafka.common.serialization.StringSerializer" />
+                <entry key="value.serializer" value="com.wf.option.pricing.kafka.OptionDataSerializer" />
                 <entry key="topic" value="${option.pricing.kakfa.publish.topic}" />
             </map>
         </constructor-arg>

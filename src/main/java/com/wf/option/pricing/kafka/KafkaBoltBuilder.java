@@ -23,7 +23,7 @@ public class KafkaBoltBuilder {
         return new KafkaBolt<String, String>()
                 .withProducerProperties(configuration)
                 .withTopicSelector(new DefaultTopicSelector(configuration.getProperty(KafkaBolt.TOPIC)))
-                .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper<>());
+                .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper<>("optionName","optionDataWithPrice"));
     }
 
     public Properties getConfiguration() {

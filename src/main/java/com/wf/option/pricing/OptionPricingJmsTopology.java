@@ -4,6 +4,7 @@ import com.wf.option.pricing.kafka.KafkaBoltBuilder;
 import com.wf.option.pricing.model.OptionData;
 import com.wf.option.pricing.redis.OptionPriceRedisBolt;
 import com.wf.option.pricing.redis.RedisBoltBuilder;
+import com.wf.option.pricing.udp.UdpPublisherBolt;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
@@ -37,7 +38,7 @@ public class OptionPricingJmsTopology {
 	public static void main(String[] args) throws Exception{
 
 		if(args == null || args.length < 1) {
-			log.error("USAGE: java ..OptionPricingJmsTopology http://refdataurl local/remote jms/redis/kafka");
+			log.error("USAGE: java ..OptionPricingJmsTopology http://refdataurl local/remote jms/redis/kafka ");
 			System.out.println("USAGE: java ..OptionPricingJmsTopology http://refdataurl local/remote jms/redis/kafka");
 			System.exit(0);
 		}
@@ -47,10 +48,36 @@ public class OptionPricingJmsTopology {
 		//Configuration
 		Config conf = new Config();
 		//conf.setDebug(false);
-		int workerCount = 2;
+		/* - System Properties
+			-Dnum.workers
+			-Dnum.spouts
+			-Dnum.pricers
+			-Dnum.publishers
+		 */
+		int workerCount =  2;
 		int spoutCount = 1;
 		int pricerCount = 5;
 		int publisherCount = 5;
+
+		String tmpVal= System.getProperty("num.workers");
+		if(tmpVal != null && !tmpVal.trim().isEmpty()) {
+			workerCount = Integer.parseInt(tmpVal);
+		}
+
+		tmpVal= System.getProperty("num.spouts");
+		if(tmpVal != null && !tmpVal.trim().isEmpty()) {
+			spoutCount = Integer.parseInt(tmpVal);
+		}
+		tmpVal= System.getProperty("num.pricers");
+		if(tmpVal != null && !tmpVal.trim().isEmpty()) {
+			pricerCount = Integer.parseInt(tmpVal);
+		}
+		tmpVal= System.getProperty("num.publishers");
+		if(tmpVal != null && !tmpVal.trim().isEmpty()) {
+			publisherCount = Integer.parseInt(tmpVal);
+		}
+
+		log.info("Parameters: Workers -{}, Spouts -{}, Pricers-{}, Publishers-{}", workerCount,spoutCount,pricerCount,publisherCount);
 
 
 		OptionJMSProvider optionJMSQueueProvider = new OptionJMSProvider(context, "jmsActiveMQFactory", "priceTickerSource");
@@ -82,10 +109,11 @@ public class OptionPricingJmsTopology {
 		if(output.equalsIgnoreCase("redis")) {
 			//Redis Bolt
 			RedisBoltBuilder redisBoltBuilder = ((RedisBoltBuilder) context.getBean("redisBuilder"));
-			OptionPriceRedisBolt redisStoreBolt = redisBoltBuilder.createInstance();
+			//OptionPriceRedisBolt redisStoreBolt = redisBoltBuilder.createInstanceCustom();
+			RedisStoreBolt redisStoreBolt = redisBoltBuilder.createInstance();
 
 			builder.setBolt(PUBLISHER_BOLT, redisStoreBolt, publisherCount)
-					.fieldsGrouping(OPTION_PRICING_BOLT, new Fields("optionName"));
+					.shuffleGrouping(OPTION_PRICING_BOLT);//, new Fields("optionName")
 
 		}else if(output.equalsIgnoreCase("jms")){
 			//JMS Bolt
@@ -120,6 +148,11 @@ public class OptionPricingJmsTopology {
 			builder.setBolt(PUBLISHER_BOLT, kafkaBolt, publisherCount)
 					.fieldsGrouping(OPTION_PRICING_BOLT, new Fields("optionName"));
 
+		}else if(output.equalsIgnoreCase("udp")) {
+
+			UdpPublisherBolt udpPublisherBolt = ((UdpPublisherBolt) context.getBean("udpPublisherBolt"));
+			builder.setBolt(PUBLISHER_BOLT, udpPublisherBolt, publisherCount)
+					.shuffleGrouping(OPTION_PRICING_BOLT);
 		}
 
 
